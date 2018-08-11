@@ -1,0 +1,4 @@
+if [ -d "{{ rbenv_path }}" ]; then
+  export RBENV_ROOT="{{ rbenv_path }}" 
+  eval "$(rbenv init -)"
+fi

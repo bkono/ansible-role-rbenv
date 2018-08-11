@@ -1,0 +1,106 @@
+---
+# tasks file for ansible-role-rbenv
+
+- name: "Installing dependencies (centos)"
+  yum:
+    name: "{{ item }}"
+    state: installed
+  with_items:
+    - git
+    - gcc
+    - openssl-devel
+    - libyaml-devel
+    - readline-devel
+    - zlib-devel
+    - libffi-devel
+  when: ansible_distribution|lower == "centos"
+
+- name: "Installing dependencies (debian)"
+  apt:
+    name: "{{ item }}"
+    state: installed
+  with_items:
+    - git
+    - libcurl4-openssl-dev
+    - libffi-dev
+    - libreadline-dev
+    - libssl-dev
+    - libxml2-dev
+    - libxslt1-dev
+    - zlib1g-dev
+  when: ansible_os_family|lower == "debian"
+
+- name: Ensure directory and permissions
+  file:
+    path: "{{rbenv_path}}"
+    owner: root
+    group: wheel
+    mode: 0775
+    recurse: yes
+    state: directory
+  become: yes
+
+- name: Install rbenv
+  git:
+    repo: "{{rbenv_repo}}"
+    dest: "{{rbenv_path}}"
+    force: no
+    update: no
+  become: yes
+
+- name: Create rbenv symlink
+  file:
+    src: "{{rbenv_path}}/bin/rbenv"
+    dest: /usr/local/bin/rbenv
+    group: wheel
+    mode: 0775
+    state: link
+  become: yes
+
+- name: Add rbenv to /etc/profile.d
+  template:
+    src: rbenv.sh.j2
+    dest: /etc/profile.d/rbenv.sh
+    group: wheel
+    mode: 0775
+  become: yes
+
+- name: Ensure shims dir
+  file:
+    path: "{{rbenv_path}}/shims"
+    owner: root
+    group: wheel
+    mode: 0775
+    recurse: yes
+    state: directory
+  become: yes
+
+- name: Install plugins
+  git:
+    repo: "{{ item['repo'] }}"
+    dest: "{{ rbenv_path }}/plugins/{{ item['name'] }}"
+    version: "{{ item['version'] | default('master') }}"
+    force: no
+    update: no
+  with_items:
+    - "{{ rbenv_plugins }}"
+  become: yes
+
+- name: Install ruby versions
+  shell: "RBENV_ROOT={{rbenv_path}} /usr/local/bin/rbenv install -s {{item}}"
+  args:
+    creates: "{{rbenv_path}}/versions/{{item}}"
+  with_items: "{{ruby_versions}}"
+
+- name: Set global ruby
+  shell: "RBENV_ROOT={{rbenv_path}} /usr/local/bin/rbenv global {{ruby_versions[0]}}"
+
+- name: Confirm directory and permissions
+  file:
+    path: "{{rbenv_path}}"
+    owner: root
+    group: wheel
+    mode: 0775
+    recurse: yes
+    state: directory
+  become: yes
